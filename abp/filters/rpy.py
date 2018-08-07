@@ -49,7 +49,16 @@ def tuple2dict(data):
 def strings2utf8(data):
     """Convert strings in a data structure to utf8 byte strings.
 
-    `data` can include nested dicts and lists.
+    Parameters
+    ----------
+    data: dict
+        The data to convert. Can include nested dicts, lists and tuples.
+
+    Returns
+    -------
+    dict
+        With all strings encoded as unicode.
+
     """
     if isinstance(data, dict):
         return {strings2utf8(k): strings2utf8(v) for k, v in data.items()}
@@ -68,5 +77,17 @@ def line2dict(text):
 
     All strings in the output dictionary will be UTF8 byte strings. This is
     necessary to prevent unicode encoding errors in rPython conversion layer.
+
+    Parameters
+    ----------
+    text: str
+        The filter text we want to parse
+
+    Returns
+    -------
+    dict
+        With the parsing results and all strings converted to utf8 byte
+        strings.
+
     """
     return strings2utf8(tuple2dict(parse_line(text)))
