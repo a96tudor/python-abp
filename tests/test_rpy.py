@@ -18,82 +18,71 @@ from __future__ import unicode_literals
 
 from collections import namedtuple
 import pytest
+import sys
 
-from abp.filters.rpy import (
-    tuple2dict, line2dict,
-)
+from abp.filters.rpy import tuple2dict, line2dict
+
 
 _SAMPLE_TUPLE = namedtuple('tuple', 'foo,bar')
 
-_ENCODED_STR_TYPE = type(''.encode('utf-8'))
-
-_EXPECTED_TYPES = {
+_TEST_EXAMPLES = {
     'header': {
-        'type': _ENCODED_STR_TYPE,
-        'version': _ENCODED_STR_TYPE,
+        'in': b'[Adblock Plus 2.0]',
+        'out': {
+            b'type': b'Header',
+            b'version': b'Adblock Plus 2.0',
+        },
     },
     'metadata': {
-        'type': _ENCODED_STR_TYPE,
-        'key': _ENCODED_STR_TYPE,
-        'value': _ENCODED_STR_TYPE,
-    },
-    'empty': {
-        'type': _ENCODED_STR_TYPE,
+        'in': b'! Title: Example list',
+        'out': {
+            b'type': b'Metadata',
+            b'key': b'Title',
+            b'value': b'Example list',
+        },
     },
     'comment': {
-        'type': _ENCODED_STR_TYPE,
-        'text': _ENCODED_STR_TYPE,
+        'in': b'! Comment',
+        'out': {
+            b'type': b'Comment',
+            b'text': b'Comment',
+        },
+    },
+    'empty': {
+        'in': b'',
+        'out': {
+            b'type': b'EmptyLine',
+        },
     },
     'include': {
-        'type': _ENCODED_STR_TYPE,
-        'target': _ENCODED_STR_TYPE,
+        'in': b'%include www.test.py/filtelist.txt%',
+        'out': {
+            b'type': b'Include',
+            b'target': b'www.test.py/filtelist.txt',
+        },
     },
-    'filter': {
-        'type': _ENCODED_STR_TYPE,
-        'text': _ENCODED_STR_TYPE,
-        'selector': dict,
-        'action': _ENCODED_STR_TYPE,
-        'options': list,
+    'filter_single': {
+        'in': b'foo.com##div#ad1',
+        'out': {
+            b'type': b'Filter',
+            b'text': b'foo.com##div#ad1',
+            b'selector': {b'type': b'css', b'value': b'div#ad1'},
+            b'action': b'hide',
+            b'options': [(b'domain', [(b'foo.com', True)])],
+        },
+    },
+    'filter_multiple': {
+        'in': b'foo.com,bar.com##div#ad1',
+        'out': {
+            b'type': b'Filter',
+            b'text': b'foo.com,bar.com##div#ad1',
+            b'selector': {b'type': b'css', b'value': b'div#ad1'},
+            b'action': b'hide',
+            b'options': [(b'domain', [(b'foo.com', True), (b'bar.com',
+                                                           True)])],
+        },
     },
 }
-
-
-def check_correct_datatypes(data, expected_types):
-    """Check if the resulting data has the correct keys and datatypes.
-
-    Parameters
-    ----------
-    data: dict
-        The dictonary produced by the API
-
-    expected_types: dict
-        The expected keys and datatypes associated with them.
-
-    Raises
-    -------
-    AssertionError
-        If any of the types/ keys don't correspond
-
-    """
-    def encode_fn(x):
-        return x.encode('utf-8')
-
-    data_keys = sorted(list(data.keys()))
-    expected_keys = sorted(list(map(encode_fn, expected_types.keys())))
-
-    if data_keys != expected_keys:
-        raise AssertionError('Invalid dict format. Got keys {0}, '
-                             'expected {1}'.format(data_keys, expected_keys))
-
-    for key in data:
-        if not isinstance(data[key], expected_types[key.decode('utf-8')]):
-            raise AssertionError(
-                'Invalid dict format. {0} should be {1}. Got {2}'.format(
-                    key,
-                    expected_types[key.decode('utf-8')],
-                    type(data[key]),
-                ),
-            )
 
 
 def check_data_utf8(data):
@@ -136,28 +125,24 @@ def test_tuple2dict(foo, bar):
     assert exp == result
 
 
-@pytest.mark.parametrize('filter_text', [
-    'abc$image',
-    '\u0432\u0435\u0431\u0441\u0430\u0439.\u0440\u0444$domain=\xfcber.de',
-])
-def test_line2dict_encoding(filter_text):
-    """Test that the resulting object has all strings encoded as utf-8."""
-    data = line2dict(filter_text.encode('utf-8'))
+@pytest.mark.skipif(sys.version.startswith('3.'), reason='Redundant on py3+.')
+@pytest.mark.parametrize('line_type', list(_TEST_EXAMPLES.keys()))
+def test_line2dict_encoding(line_type):
+    """Test that the resulting object has all strings encoded as utf-8.
+
+    These tests will only be run on Python2.*. On Python3.*, these test
+    cases are covered by test_line2dict() below.
+    """
+    data = line2dict(_TEST_EXAMPLES[line_type]['in'])
     check_data_utf8(data)
 
 
-@pytest.mark.parametrize('line,expected', [
-    ('[Adblock Plus 2.0]', _EXPECTED_TYPES['header']),
-    ('! Title: Example list', _EXPECTED_TYPES['metadata']),
-    ('! Comment', _EXPECTED_TYPES['comment']),
-    ('abc.com,cdf.com##div#ad1', _EXPECTED_TYPES['filter']),
-    ('%include www.test.py/filtelist.txt%', _EXPECTED_TYPES['include']),
-    ('', _EXPECTED_TYPES['empty']),
-])
-def test_line2dict_format(line, expected):
+@pytest.mark.parametrize('line_type', list(_TEST_EXAMPLES.keys()))
+def test_line2dict_format(line_type):
     """Test that the API result has the appropriate format.
 
     Checks for both keys and datatypes.
     """
-    data = line2dict(line)
-    check_correct_datatypes(data, expected)
+    data = line2dict(_TEST_EXAMPLES[line_type]['in'])
+
+    assert data == _TEST_EXAMPLES[line_type]['out']

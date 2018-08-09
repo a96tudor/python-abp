@@ -31,7 +31,7 @@ def tuple2dict(data):
 
     Parameters
     ----------
-    filter: namedtuple
+    data: namedtuple
         The parsed filter.
 
     Returns
