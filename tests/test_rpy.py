@@ -126,7 +126,7 @@ def test_tuple2dict(foo, bar):
 
 
 @pytest.mark.skipif(sys.version.startswith('3.'), reason='Redundant on py3+.')
-@pytest.mark.parametrize('line_type', list(_TEST_EXAMPLES.keys()))
+@pytest.mark.parametrize('line_type', _TEST_EXAMPLES.keys())
 def test_line2dict_encoding(line_type):
     """Test that the resulting object has all strings encoded as utf-8.
 
